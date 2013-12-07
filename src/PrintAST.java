@@ -87,7 +87,8 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 		if(arg1.source instanceof VLitInt) {
 			assignment = loadImmediate(destReg, arg1.source.toString(), indentation);
 		} else if(arg1.source instanceof VLabelRef<?>) {
-			assignment = loadAddress(destReg, arg1.source.toString(), indentation);
+			
+			assignment = loadAddress(destReg, arg1.source.toString().substring(1), indentation);
 		} else if(arg1.source instanceof VVarRef){
 			assignment = move(destReg, arg1.source.toString(), indentation);
 		} else {
@@ -122,7 +123,7 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 			offset = globalMemRef.byteOffset;
 			if(globalMemRef.base instanceof VAddr.Label<?>) {
 				//base address is a label
-				String label = globalMemRef.base.toString();
+				String label = globalMemRef.base.toString().substring(1);
 				//load the label into $ra. safe because $ra will be backed up at beginning of func.
 				memWrite = loadAddress(returnAddress, label, indentation);
 				writeDest = returnAddress;
@@ -154,7 +155,7 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 		if(arg1.source instanceof VLitInt) {
 			loadString = loadImmediate(freeReg, arg1.source.toString(), indentation);
 		} else if(arg1.source instanceof VLabelRef<?>) {
-			loadString = loadAddress(freeReg, arg1.source.toString(), indentation);
+			loadString = loadAddress(freeReg, arg1.source.toString().substring(1), indentation);
 		} else if(arg1.source instanceof VVarRef){
 			loadString = move(freeReg, arg1.source.toString(), indentation);
 		} else {
@@ -184,7 +185,7 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 			offset = globalMemRef.byteOffset;
 			if(globalMemRef.base instanceof VAddr.Label<?>) {
 				//base address is a label
-				String label = globalMemRef.base.toString();
+				String label = globalMemRef.base.toString().substring(1);
 				//load the label into $ra. safe because $ra will be backed up at beginning of func.
 				memRead = loadAddress(returnAddress, label, indentation);
 				readDest = returnAddress;

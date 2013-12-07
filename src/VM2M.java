@@ -98,10 +98,10 @@ public class VM2M {
 				  PrintAST printASTVisitor = new PrintAST(func);
 				  
 				  //Function declaration
-				  String funcDec = func.ident + ":";
+				  String funcDec = func.ident + ":\n";
 	
 				  //Create the start of the function
-				  String functionStart = printASTVisitor.returnIntro(1);
+				  String functionStart = funcDec+printASTVisitor.returnIntro(1);
 				  VCodeLabel []labels =  func.labels;
 
 				  String body = "";
