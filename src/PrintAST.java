@@ -220,21 +220,44 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 	}
 
 	@Override
-	public String visit(Integer arg0, VBranch arg1) throws Throwable {
-		// TODO Auto-generated method stub
-		return null;
+	public String visit(Integer indentation, VBranch arg1) throws Throwable {
+		String branchString = "";
+		//NOTE: make sure all labels dont have colon
+		String label = arg1.target.toString().substring(1);
+		String branchVal = "";
+				
+		if(arg1.value instanceof VLitInt) {
+			//load the literal into $t9
+			branchString = loadImmediate(freeReg, arg1.value.toString(), indentation);				//branch on val of $t9
+			branchVal = freeReg;
+		}  else if(arg1.value instanceof VVarRef){
+			branchVal = arg1.value.toString();
+		} else {
+			assert(false);
+		}
+			
+		if(arg1.positive) {
+			//beqz
+			String s = branchOnNotEqualZero(branchVal, label, indentation);
+			branchString = concatentateInstructions(branchString, s);
+		} else {
+			String s = branchOnEqualZero(branchVal, label, indentation);
+			branchString = concatentateInstructions(branchString, s);
+		}
+		
+		return branchString;
 	}
 
 	@Override
-	public String visit(Integer arg0, VGoto arg1) throws Throwable {
-		// TODO Auto-generated method stub
-		return null;
+	public String visit(Integer indentation, VGoto arg1) throws Throwable {
+		String label = arg1.target.toString().substring(1);
+		return jump(label, indentation);
 	}
 
 	@Override
-	public String visit(Integer arg0, VReturn arg1) throws Throwable {
-		// TODO Auto-generated method stub
-		return null;
+	public String visit(Integer indentation, VReturn arg1) throws Throwable {
+		//Just return
+		return "";
 	}
 	
 	
@@ -305,19 +328,7 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 	   }
 		return concatentedString;
 	}
-	
-	public static boolean isOperandVariable(VOperand operand) {
-		return (operand instanceof VVarRef.Local);
-	}
-	
-	public static String variableFromMemAddress(VAddr varAddr) {
-		if(varAddr instanceof VAddr.Var<?>) {
-			VAddr.Var v = (VAddr.Var)varAddr;
-			String var = v.var.toString();
-			return var;
-		}
-		return null;
-	}
+
 	
 	int returnOffsetFromStackPointer(VMemRef.Stack.Region regionType,int offset) {
 		//Return the offset relative to the current stack pointer to get the offset
