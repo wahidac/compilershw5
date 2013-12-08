@@ -53,7 +53,34 @@ null1:
   jalr $t1
   move $t1 $v0
   move $a0 $t1
+  li $a0 50
+  slti $a0 $a0 100
   jal _print
+
+  li $t9 1
+  subu $t9 $t9 4
+  beqz $t9 _equalNumsBegin0
+  move $a1 $0
+  j _equalNumsEnd0
+_equalNumsBegin0:
+  li $a1 1
+_equalNumsEnd0:
+
+  move $a0 $a1
+  jal _print
+  subu $t9 $a1 $a1
+  beqz $t9 _equalNumsBegin1
+  move $a2 $0
+  j _equalNumsEnd1
+_equalNumsBegin1:
+  li $a2 1
+_equalNumsEnd1:
+
+move $a0 $0
+jal _print
+
+
+
   lw $ra -4($fp)
   lw $fp -8($fp)
   addu $sp $sp 8
@@ -423,7 +450,11 @@ Tree.Compare:
   sw $ra -4($fp)
   move $t0 $a1
   move $t1 $a2
-  addu $t2 $t1 1
+  li $ra 10
+  addu $t2 $ra 121
+  move $a0 $t2
+  jal _print
+
   slt $t1 $t0 $t1
   beqz $t1 if1_else
   li $t1 0

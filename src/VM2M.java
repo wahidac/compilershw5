@@ -7,10 +7,12 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map.Entry;
 
 import cs132.util.ProblemException;
 import cs132.vapor.parser.VaporParser;
+import cs132.vapor.ast.VBuiltIn;
 import cs132.vapor.ast.VCodeLabel;
 import cs132.vapor.ast.VDataSegment;
 import cs132.vapor.ast.VFunction;
@@ -87,15 +89,13 @@ public class VM2M {
 				  dataSection = concatentateInstructions(dataSection, currentSection,"");
 			  }
 			  			  
-			  String beginText = ".text\njal Main\nli $v0 10\nsyscall";
-			  String stringConstants = ".data\n.align 0\n_newline: .asciiz \"\n\"\n_str0: " +
-					   ".asciiz \"null pointer\\n\"" +
-					   "_str1: .asciiz \"array index out of bounds\\n\"";
-			 
+			  String beginText = "\n.text\n  jal Main\n  li $v0 10\n  syscall\n";
+			  ArrayList<String> listOfConstants = new ArrayList<String>();
+			  String stringConstants = returnStringConstantsForProgram(program,listOfConstants);
 			   //Go through functions now.
 			  String functions = "";
 			  for(VFunction func:program.functions) {
-				  PrintAST printASTVisitor = new PrintAST(func);
+				  PrintAST printASTVisitor = new PrintAST(func,listOfConstants);
 				  
 				  //Function declaration
 				  String funcDec = func.ident + ":\n";
@@ -129,51 +129,13 @@ public class VM2M {
 
 			  }
 			  System.out.println(dataSection);
+			  System.out.println(beginText);
 			  System.out.println(functions);
-			  
+			  System.out.println("\n"+PrintAST.returnBuiltInDefinitions());
+			  System.out.println(stringConstants);
 			  return program;
 			}
 	
-	public static String saveCalleeSavedRegisters(HashMap<String,String> assignments, ArrayList<String> calleeSavedRegisters) {
-		String returnString = "";
-		//Backup all callee saved registers that will be used
-		HashSet<String> setOfCalleeSavedRegs = new HashSet<String>();
-		for(Entry<String, String> e:assignments.entrySet()) {
-			String reg = e.getValue();
-			String type = RegisterAllocator.registerType(reg);
-			if(type.equals("CALLEE_SAVED")) {
-				setOfCalleeSavedRegs.add(reg);
-			}
-		}
-		
-		for(String s:setOfCalleeSavedRegs) {
-			calleeSavedRegisters.add(s);
-		}
-		//Order callee saved registers are in the arraylist = order they
-		//will occupy the local stack
-		
-		//Backup into local
-		for(int i = 0; i < calleeSavedRegisters.size(); i++) {
-			String backupString = "local[" + String.valueOf(i) + "]";
-			backupString = getIndentation(1) + backupString + " = " + calleeSavedRegisters.get(i); 
-			returnString = concatentateInstructions(returnString, backupString);
-		}
-		
-		return returnString;
-	}
-	
-	public static String loadCalleeSavedRegisters(ArrayList<String> calleeSavedRegisters) {
-		String returnString = "";
-		
-		//Load back the callee saved registers
-		for(int i = 0; i < calleeSavedRegisters.size(); i++) {
-			String backupString = "local[" + String.valueOf(i) + "]";
-			backupString = getIndentation(1) + calleeSavedRegisters.get(i) + " = " + backupString; 
-			returnString = concatentateInstructions(returnString, backupString);
-		}
-		
-		return returnString;
-	}
 	
 	  
 	
@@ -194,5 +156,37 @@ public class VM2M {
 		return concatentedString;
 	}
 
+	public static String returnStringConstantsForProgram(VaporProgram program, ArrayList<String> listOfConstants) {
+		//Find all string constants used
+		String constLabel = "_str";
+		String stringConstants = ".data\n.align 0\n_newline: .asciiz \"\\n\"";
+		LinkedHashSet<String> constants = new LinkedHashSet<String>();
+		for(VFunction func:program.functions) {
+			//If error, then check the string
+			for(VInstr instr:func.body) {
+				if(instr instanceof VBuiltIn) {
+					VBuiltIn builtIn = (VBuiltIn)instr;
+					String builtInOp = builtIn.op.name;
+					if(builtInOp.equalsIgnoreCase("Error")) {
+						String err = builtIn.args[0].toString();
+						constants.add(err);
+					}
+				}
+			}
+		}
+		
+		for(String constant:constants) {
+			listOfConstants.add(constant);
+		}
+		
+		for(int i = 0; i < listOfConstants.size(); i++) {
+			String label = constLabel + String.valueOf(i) + ":	.asciiz ";
+			String s = listOfConstants.get(i);
+			label += s.subSequence(0, s.length()-1) + "\\n\"";
+			stringConstants = concatentateInstructions(stringConstants, label);
+		}
+		
+		return stringConstants;
+	}
 	
 }

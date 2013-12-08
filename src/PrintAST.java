@@ -19,20 +19,24 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 	//Starting offset for spilled variables (everything after the backup storage)
 	int numLocals;
 	int numOut;
+	int eqCounter;
     String [] arguments;
     String returnReg;
     String framePointer;
     String stackPointer;
     String returnAddress;
+    String registerZero;
     String freeReg;
+    ArrayList<String> listOfConstants;
     
-	public PrintAST(VFunction func) {
+	public PrintAST(VFunction func, ArrayList<String> listOfConstants) {
 		int numParams = func.params.length;
 		VFunction.Stack funcStack =  func.stack;
 		//8 by default to save return address and frame pointer
 		bytesInStackFrame = 8;
 		bytesInStackFrame += funcStack.out*4;
 		bytesInStackFrame += funcStack.local*4;
+		eqCounter = 0;
 		
 		numLocals = funcStack.local;
 		numOut = funcStack.out;
@@ -49,7 +53,10 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 		stackPointer = "$sp";
 		returnAddress = "$ra";
 		freeReg = "$t9";
+		registerZero = "$0";
 		indentationSpacing = "  ";	
+
+		this.listOfConstants = listOfConstants;
 	}
 
 	
@@ -77,6 +84,15 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 		return concatentateInstructions(s1,s2,s3,s4);
 	}
 	
+	public static String returnBuiltInDefinitions() {
+		//Place declarations of some built in functions at the bottom of the
+		//mips files so we can call them
+		String print = "_print:\n  li $v0 1\n  syscall\n  la $a0 _newline\n  li $v0 4\n  syscall\n  jr $ra\n";
+		String error = "_error:\n  li $v0 4\n  syscall\n  li  $v0 10\n  syscall\n";
+		String heapAlloc = "_heapAlloc:\n  li $v0 9\n  syscall\n  jr $ra\n";
+		return concatentateInstructions(print, error, heapAlloc); 
+	}
+	
 	
 	@Override
 	public String visit(Integer indentation, VAssign arg1) throws Throwable {
@@ -100,13 +116,194 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 	@Override
 	public String visit(Integer indentation, VCall arg1) throws Throwable {
 		// TODO Auto-generated method stub
+		arg1.
 		return null;
 	}
 
 	@Override
-	public String visit(Integer indenation, VBuiltIn arg1) throws Throwable {
-		// TODO Auto-generated method stub
-		return null;
+	public String visit(Integer indentation, VBuiltIn arg1) throws Throwable {
+		String builtInOp = arg1.op.name;
+		int numParams = arg1.op.numParams;
+		String builtInStr = "";
+		String destReg = "";
+		if(arg1.dest != null) {
+			destReg = arg1.dest.toString();
+		} else {
+			destReg = registerZero;
+		}
+
+		//Add
+		if(builtInOp.equalsIgnoreCase("Add")) {
+			assert(numParams == 2);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			VOperand second =  arg1.args[1];
+			String firstOp = "";
+			String secondOp ="";
+
+			
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(freeReg, first.toString(), indentation);
+				firstOp = freeReg;
+			} else {
+				firstOp = first.toString();
+			}
+			secondOp = second.toString();
+			
+			String s = add(destReg, firstOp, secondOp, indentation);
+			builtInStr = concatentateInstructions(builtInStr, s);
+		} else if(builtInOp.equalsIgnoreCase("Sub")) {
+			assert(numParams == 2);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			VOperand second =  arg1.args[1];
+			String firstOp = "";
+			String secondOp ="";
+
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(freeReg, first.toString(), indentation);
+				firstOp = freeReg;
+			} else {
+				firstOp = first.toString();
+			}
+			secondOp = second.toString();
+			
+			String s = subtract(destReg, firstOp, secondOp, indentation);
+			builtInStr = concatentateInstructions(builtInStr, s);
+		} else if(builtInOp.equalsIgnoreCase("MulS")) {
+			assert(numParams == 2);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			VOperand second =  arg1.args[1];
+			String firstOp = "";
+			String secondOp ="";
+			
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(freeReg, first.toString(), indentation);
+				firstOp = freeReg;
+			} else {
+				firstOp = first.toString();
+			}
+			secondOp = second.toString();
+			
+			String s = multiply(destReg, firstOp, secondOp, indentation);
+			builtInStr = concatentateInstructions(builtInStr, s);
+		} else if(builtInOp.equalsIgnoreCase("LtS")) {
+			assert(numParams == 2);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			VOperand second =  arg1.args[1];
+			String firstOp = "";
+			String secondOp= "";
+			
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(freeReg, first.toString(), indentation);
+				firstOp = freeReg;
+			} else {
+				firstOp = first.toString();
+			}
+			secondOp = second.toString();
+			
+			String s = "";
+			if(second instanceof VLitInt) {
+				s = setLessThanImmediate(destReg, firstOp, secondOp, indentation);
+			} else {
+				s = setLessThanReg(destReg, firstOp, secondOp, indentation);
+			}
+			
+			builtInStr = concatentateInstructions(builtInStr, s);
+		} else if(builtInOp.equalsIgnoreCase("Lt")) {
+			assert(numParams == 2);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			VOperand second =  arg1.args[1];
+			String firstOp = "";
+			String secondOp= "";
+			
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(freeReg, first.toString(), indentation);
+				firstOp = freeReg;
+			} else {
+				firstOp = first.toString();
+			}
+			secondOp = second.toString();
+			
+			String s = "";
+			if(second instanceof VLitInt) {
+				s = setLessThanUnsignedImmediate(destReg, firstOp, secondOp, indentation);
+			} else {
+				s = setLessThanUnsignedReg(destReg, firstOp, secondOp, indentation);
+			}
+			
+			builtInStr = concatentateInstructions(builtInStr, s);
+		} else if(builtInOp.equalsIgnoreCase("Eq")) {
+			assert(numParams == 2);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			VOperand second =  arg1.args[1];
+			String firstOp = "";
+			String secondOp= "";
+			
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(freeReg, first.toString(), indentation);
+				firstOp = freeReg;
+			} else {
+				firstOp = first.toString();
+			}
+			secondOp = second.toString();
+			
+			String branchLabel1 = "_equalNumsBegin" + String.valueOf(eqCounter);
+			String branchLabel2 = "_equalNumsEnd" + String.valueOf(eqCounter);
+			eqCounter++;
+			
+			String s1 = subtract(freeReg, firstOp, secondOp, indentation);
+			String s2 = branchOnEqualZero(freeReg, branchLabel1, indentation);
+			String s3 = move(destReg, "$0", indentation);
+			String s4 = jump(branchLabel2, indentation);
+			String s5 = branchLabel1+":";
+			String s6 = loadImmediate(destReg, "1", indentation);
+			String s7 = branchLabel2+":";
+			builtInStr = concatentateInstructions(builtInStr,s1,s2,s3,s4,s5,s6,s7);
+		} else if(builtInOp.equalsIgnoreCase("PrintIntS")) {
+			assert(numParams == 1);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(arguments[0], first.toString(), indentation);
+			} else {
+				builtInStr = move(arguments[0], first.toString(), indentation);
+			}
+
+			String s = jumpAndLink("_print", indentation);
+			builtInStr = concatentateInstructions(builtInStr, s);
+		} else if(builtInOp.equalsIgnoreCase("HeapAllocZ")) {
+			assert(numParams == 1);
+			//Two operands
+			VOperand first =  arg1.args[0];
+			
+			if(first instanceof VLitInt) {
+				builtInStr = loadImmediate(arguments[0], first.toString(), indentation);
+			} else {
+				builtInStr = move(arguments[0], first.toString(), indentation);
+			}
+
+			String s1 = jumpAndLink("_heapAlloc", indentation);
+			//Assign result to dest reg
+			String s2 = move(destReg, returnReg, indentation);
+			builtInStr = concatentateInstructions(builtInStr, s1,s2);
+		} else if(builtInOp.equalsIgnoreCase("Error")) {
+			assert(numParams == 1);
+			String arg = arg1.args[0].toString();
+			int index = listOfConstants.indexOf(arg);
+			assert(index != -1);
+			String argLabel = "_str" + String.valueOf(index);
+			String s1 = loadAddress(arguments[0], argLabel, indentation);
+			String s2 = jump("_error", indentation);
+			builtInStr = concatentateInstructions(builtInStr, s1, s2);
+		}
+		
+		return builtInStr;
 	}
 
 	@Override
@@ -225,6 +422,7 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 		//NOTE: make sure all labels dont have colon
 		String label = arg1.target.toString().substring(1);
 		String branchVal = "";
+	
 				
 		if(arg1.value instanceof VLitInt) {
 			//load the literal into $t9
@@ -237,7 +435,7 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 		}
 			
 		if(arg1.positive) {
-			//beqz
+			//bneqz
 			String s = branchOnNotEqualZero(branchVal, label, indentation);
 			branchString = concatentateInstructions(branchString, s);
 		} else {
@@ -311,6 +509,20 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
     public static String jump(String label,Integer indentation) {
     	return getIndentation(indentation) + "j " + label;
     }
+    
+    public static String setLessThanReg(String destReg, String opReg1, String opReg2, Integer indentation) {
+    	return getIndentation(indentation) + "slt " + destReg + " " + opReg1 + " " + opReg2;
+    }
+    public static String setLessThanImmediate(String destReg, String opReg1, String immediate, Integer indentation) {
+    	return getIndentation(indentation) + "slti " + destReg + " " + opReg1 + " " + immediate;
+    }
+    
+    public static String setLessThanUnsignedReg(String destReg, String opReg1, String opReg2, Integer indentation) {
+    	return getIndentation(indentation) + "sltu " + destReg + " " + opReg1 + " " + opReg2;
+    }
+    public static String setLessThanUnsignedImmediate(String destReg, String opReg1, String immediate, Integer indentation) {
+    	return getIndentation(indentation) + "sltiu " + destReg + " " + opReg1 + " " + immediate;
+    }
 
 	//Helper functions
     public static String getIndentation(Integer indentation) {
@@ -321,7 +533,7 @@ public class PrintAST extends VInstr.VisitorPR<Integer, String, Throwable>  {
 		return ret;
 	}
 	
-	private String concatentateInstructions(String v1, String v2, String...strings) {
+	private static String concatentateInstructions(String v1, String v2, String...strings) {
 		String concatentedString = v1 + "\n" + v2;
 		for(String s:strings) {
 		  concatentedString += "\n" + s;
